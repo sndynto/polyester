@@ -1,0 +1,20 @@
+# Secrets & credentials (JANGAN DI-PUSH KE GITHUB!)
+.env
+accounts.json
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
