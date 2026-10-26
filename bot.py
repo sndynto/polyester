@@ -195,8 +195,29 @@ class AccountSession:
         log("--- Saldo Trading Account ---", Colors.BOLD, self.name)
         if not balances:
             log("  (Belum ada saldo terdeteksi. Pastikan sudah claim faucet di web!)", Colors.YELLOW, self.name)
+
+        # Perkiraan nilai tukar kasar untuk menghitung Total Equity
+        prices_usd = {
+            "USDT": Decimal("1.0"),
+            "USDC": Decimal("1.0"),
+            "BTC": Decimal("68000.0"),
+            "ETH": Decimal("2500.0"),
+            "SOL": Decimal("165.0"),
+            "DOGE": Decimal("0.145"),
+            "AVAX": Decimal("26.0")
+        }
+        total_usd = Decimal("0.0")
+
         for asset, amt in balances.items():
-            log(f"  {asset}: {amt}", Colors.GREEN, self.name)
+            est_val = amt * prices_usd.get(asset, Decimal("0.0"))
+            total_usd += est_val
+            if est_val > Decimal("0.05") and asset != "USDT":
+                log(f"  {asset}: {amt} (~${est_val:.2f} USD)", Colors.GREEN, self.name)
+            else:
+                log(f"  {asset}: {amt}", Colors.GREEN, self.name)
+
+        if total_usd > Decimal("0.0"):
+            log(f"  💰 Total Estimasi Equity Portofolio: ~${total_usd:.2f} USD (Sesuai web)", Colors.CYAN, self.name)
         log("-----------------------------", Colors.BOLD, self.name)
 
     async def cancel_all_open_orders(self, symbol: str | None = None):
@@ -336,6 +357,8 @@ class AccountSession:
             pair = random.choice(pairs)
             try:
                 await self.execute_trade_cycle(i, pair)
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                raise
             except Exception as e:
                 log(f"Kesalahan siklus {i}: {e}", Colors.RED, self.name)
 
@@ -462,10 +485,13 @@ async def main():
     manager = MultiAccountManager()
     try:
         await manager.run()
-    except KeyboardInterrupt:
-        log("\nProses dihentikan oleh pengguna.", Colors.YELLOW)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        log("\nProses dihentikan oleh pengguna (Ctrl+C).", Colors.YELLOW)
     except Exception as e:
         log(f"\nFatal error: {e}", Colors.RED)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
