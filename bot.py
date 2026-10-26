@@ -219,7 +219,7 @@ class AccountSession:
 
         if config.AUTO_CANCEL_OPEN:
             await self.cancel_all_open_orders(pair_symbol)
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(1.2)
 
         try:
             ob = await self.client.orderbook.get(symbol=pair_symbol)
@@ -231,6 +231,7 @@ class AccountSession:
             log(f"Gagal orderbook {pair_symbol}: {e}", Colors.RED, self.name)
             return
 
+        await asyncio.sleep(0.8)
         balances = await self.get_balances()
         base_bal = balances.get(base_asset, Decimal("0"))
         quote_bal = balances.get(quote_asset, Decimal("0"))
