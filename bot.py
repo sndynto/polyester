@@ -284,10 +284,28 @@ class AccountSession:
         except Exception as e:
             log(f"Order gagal: {e}", Colors.RED, self.name)
 
-    async def run(self):
+    def has_tradable_balance(self, balances: dict[str, Decimal]) -> bool:
+        if not balances:
+            return False
+        # USDT mencukupi minimum notional DEX ($5.0)
+        if balances.get("USDT", Decimal("0")) >= Decimal("5.0"):
+            return True
+        # Atau ada token lain yang berpotensi bisa dijual
+        for asset, amt in balances.items():
+            if asset != "USDT" and amt > Decimal("0.0001"):
+                return True
+        return False
+
+    async def run(self) -> str:
         await self.initialize()
         initial_balances = await self.get_balances()
         self.print_balances(initial_balances)
+
+        if not self.has_tradable_balance(initial_balances):
+            log("⚠️ Saldo tidak mencukupi untuk trading (minimal $5.00 USDT atau token spot). Melewati akun ini (SKIP)...", Colors.YELLOW, self.name)
+            if self.client:
+                await self.client.aclose()
+            return "Dilewati (Tanpa Saldo)"
 
         pairs = self.persona.preferred_pairs
 
@@ -309,6 +327,7 @@ class AccountSession:
 
         if self.client:
             await self.client.aclose()
+        return "Sukses"
 
 class MultiAccountManager:
     def __init__(self):
@@ -371,27 +390,35 @@ class MultiAccountManager:
             log(f"\n{'='*20} [{idx}/{total_accounts}] MEMPROSES: {acc_name.upper()} {'='*20}", Colors.HEADER)
 
             session = AccountSession(acc_data, config.TOTAL_CYCLES)
+            status_text = "Sukses"
             try:
-                await session.run()
+                run_res = await session.run()
+                if run_res:
+                    status_text = run_res
                 summary_results.append({
                     "name": acc_name,
-                    "status": "Sukses",
+                    "status": status_text,
                     "tx_count": session.total_tx_count,
                     "volume": session.total_volume_usd
                 })
             except Exception as e:
                 log(f"Gagal memproses {acc_name}: {e}", Colors.RED)
+                status_text = "Gagal"
                 summary_results.append({
                     "name": acc_name,
-                    "status": f"Gagal",
+                    "status": "Gagal",
                     "tx_count": session.total_tx_count,
                     "volume": session.total_volume_usd
                 })
 
             # Jeda acak antar akun (Anti-Sybil Inter-Account Cooldown)
             if idx < total_accounts:
-                cooldown = random.randint(30, 85)
-                log(f"\n⏳ Anti-Sybil Cooldown: Menunggu jeda {cooldown} detik sebelum berpindah ke akun berikutnya...", Colors.YELLOW)
+                if "Dilewati" in status_text or status_text == "Gagal":
+                    cooldown = 3
+                    log(f"\nAkun selesai (status: {status_text}), lanjut ke akun berikutnya dalam {cooldown} detik...", Colors.YELLOW)
+                else:
+                    cooldown = random.randint(30, 85)
+                    log(f"\n⏳ Anti-Sybil Cooldown: Menunggu jeda {cooldown} detik sebelum berpindah ke akun berikutnya...", Colors.YELLOW)
                 await asyncio.sleep(cooldown)
 
         # Cetak Rekapitulasi Akhir
@@ -401,7 +428,7 @@ class MultiAccountManager:
         total_all_tx = 0
         total_all_vol = Decimal("0.0")
         for res in summary_results:
-            log(f"  {res['name']:<15} | Status: {res['status']:<8} | Tx: {res['tx_count']} | Vol: ~${res['volume']:.2f}", Colors.BOLD)
+            log(f"  {res['name']:<15} | Status: {res['status']:<23} | Tx: {res['tx_count']} | Vol: ~${res['volume']:.2f}", Colors.BOLD)
             total_all_tx += res["tx_count"]
             total_all_vol += res["volume"]
         print("-" * 65)
