@@ -13,6 +13,13 @@ import polyester.auth as auth
 from polyester.errors import PolyesterError, PolyesterAuthError, PolyesterApiError
 import config
 
+# Ensure UTF-8 output on Windows terminal
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Color terminal helpers
 class Colors:
     HEADER = '\033[95m'
@@ -128,7 +135,6 @@ class AccountSession:
                 self.client = AsyncPolyester(
                     api_key_id=self.api_key_id,
                     api_private_key=self.api_private_key,
-                    default_account_id=self.account_id if self.account_id else None,
                     environment=config.CUSTOM_TESTNET_ENV,
                     timeout=30.0
                 )
