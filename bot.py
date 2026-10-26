@@ -121,18 +121,26 @@ class AccountSession:
             os.environ.pop("HTTP_PROXY", None)
             os.environ.pop("HTTPS_PROXY", None)
 
-        self.client = AsyncPolyester(
-            api_key_id=self.api_key_id,
-            api_private_key=self.api_private_key,
-            default_account_id=self.account_id if self.account_id else None,
-            environment=config.CUSTOM_TESTNET_ENV
-        )
-
-        try:
-            await self.client.wait_for_catalogs()
-        except Exception as e:
-            log(f"Gagal memuat katalog: {e}", Colors.RED, self.name)
-            raise
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                self.client = AsyncPolyester(
+                    api_key_id=self.api_key_id,
+                    api_private_key=self.api_private_key,
+                    default_account_id=self.account_id if self.account_id else None,
+                    environment=config.CUSTOM_TESTNET_ENV,
+                    timeout=30.0
+                )
+                await self.client.wait_for_catalogs()
+                break
+            except Exception as e:
+                if self.client:
+                    await self.client.aclose()
+                if attempt == max_retries:
+                    log(f"Gagal memuat katalog setelah {max_retries}x percobaan: {e}", Colors.RED, self.name)
+                    raise
+                log(f"Koneksi/katalog lambat ({e}). Mencoba ulang ({attempt}/{max_retries}) dalam 3 detik...", Colors.YELLOW, self.name)
+                await asyncio.sleep(3)
 
         spot_config = self.client.catalogs.spot_config or {}
         raw_pairs = spot_config.get("pairs", [])
@@ -312,7 +320,9 @@ class MultiAccountManager:
         if os.path.exists(accounts_file):
             try:
                 with open(accounts_file, "r") as f:
-                    data = json.load(f)
+                    content = f.read().strip()
+                if content:
+                    data = json.loads(content)
                     if isinstance(data, list) and len(data) > 0:
                         self.accounts = [acc for acc in data if acc.get("api_key_id") and acc.get("api_private_key")]
                         if self.accounts:
