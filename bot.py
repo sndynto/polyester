@@ -71,10 +71,8 @@ class TraderPersona:
         if self.total_cycles < 5:
             self.total_cycles = 5
 
-        # 2. Pasangan koin dipilih secara unik & diacak prioritasnya
-        # Setiap akun hanya memilih 2 - 4 pair favorit yang berbeda
-        sample_size = min(len(all_pairs), random.randint(2, 4))
-        self.preferred_pairs = random.sample(all_pairs, sample_size)
+        # 2. Seluruh pasangan koin diaktifkan dan diacak urutan variasinya
+        self.preferred_pairs = list(all_pairs)
         random.shuffle(self.preferred_pairs)
 
         # 3. Rentang nominal USD diacak per akun (agar tidak ada pola nilai seragam)
@@ -91,11 +89,12 @@ class TraderPersona:
         self.sell_bias = random.choice([0.5, 0.6, 0.7])  # Random probabilitas
 
     def describe(self):
+        sample_disp = ", ".join(self.preferred_pairs[:6]) + f" ... (+{len(self.preferred_pairs)-6} pair lainnya)" if len(self.preferred_pairs) > 6 else ", ".join(self.preferred_pairs)
         return (
             f"Persona: {self.total_cycles} Siklus | "
             f"Nominal: ${self.min_order_usd:.2f}-${self.max_order_usd:.2f} | "
             f"Jeda: {self.min_delay}-{self.max_delay}s | "
-            f"Pair: {', '.join(self.preferred_pairs)}"
+            f"Multi-Pair ({len(self.preferred_pairs)}): {sample_disp}"
         )
 
 class AccountSession:
@@ -159,7 +158,7 @@ class AccountSession:
         # Inisialisasi Persona Anti-Sybil Unik untuk Akun ini
         available_target_pairs = [p for p in config.DEFAULT_PAIRS if p in self.enabled_pairs]
         if not available_target_pairs:
-            available_target_pairs = [p for p in ["DOGE-USDT", "ETH-USDT", "SOL-USDT", "BTC-USDT", "AVAX-USDT"] if p in self.enabled_pairs]
+            available_target_pairs = list(self.enabled_pairs.keys())
 
         self.persona = TraderPersona(self.name, available_target_pairs, self.base_cycles)
         log(f"🛡️ Anti-Sybil Profil: {self.persona.describe()}", Colors.MAGENTA, self.name)
@@ -288,6 +287,20 @@ class AccountSession:
         bid_price_usd = Decimal(best_bid.price.ticks) / Decimal("1000000000")
         base_val_usd = base_bal * bid_price_usd
 
+        # Jika saldo quote tidak cukup untuk buy dan saldo base tidak cukup untuk sell,
+        # alihkan otomatis ke pair lain yang quote-nya memiliki saldo mencukupi (misal USDT)
+        if base_val_usd < Decimal("5.5") and quote_bal < Decimal("5.5"):
+            viable_pairs = [
+                p for p in self.persona.preferred_pairs
+                if p in self.enabled_pairs and balances.get(self.enabled_pairs[p].get("quoteAsset", ""), Decimal("0")) >= Decimal("5.5")
+            ]
+            if viable_pairs:
+                fallback_pair = random.choice(viable_pairs)
+                if fallback_pair != pair_symbol:
+                    return await self.execute_trade_cycle(cycle_num, fallback_pair)
+            log(f"Saldo belum mencukupi untuk trading di {pair_symbol}.", Colors.YELLOW, self.name)
+            return
+
         # Tentukan side berdasarkan saldo & bobot persona unik
         if base_val_usd >= Decimal("5.5") and random.random() < self.persona.sell_bias:
             side = "sell"
@@ -298,10 +311,12 @@ class AccountSession:
                 steps = (base_bal / step_size).quantize(Decimal("1"), rounding=ROUND_DOWN)
                 order_qty = str(steps * step_size)
                 notional = Decimal(order_qty) * bid_price_usd
-        else:
+        elif quote_bal >= Decimal("5.5"):
             side = "buy"
             chosen_price = best_ask.price
             order_qty, notional = self.calculate_order_qty(pair_info, side, quote_bal, best_ask.price.ticks)
+        else:
+            return
 
         log(f"Order: {side.upper()} {order_qty} {base_asset} @ ~${notional:.2f}", Colors.CYAN, self.name)
 

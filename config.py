@@ -16,8 +16,14 @@ API_KEY_ID = os.getenv("POLYESTER_API_KEY_ID", "").strip()
 API_PRIVATE_KEY = os.getenv("POLYESTER_API_PRIVATE_KEY", "").strip()
 ACCOUNT_ID = os.getenv("POLYESTER_ACCOUNT_ID", "").strip()
 
-# Default trading pairs to cycle through
-DEFAULT_PAIRS = [p.strip() for p in os.getenv("TRADING_PAIRS", "ETH-USDT,SOL-USDT,BTC-USDT,DOGE-USDT").split(",") if p.strip()]
+# Default trading pairs to cycle through (Semua pair aktif di Polyester Testnet)
+ALL_TESTNET_PAIRS = [
+    "BTC-USDT", "ETH-USDT", "SOL-USDT", "DOGE-USDT", "AVAX-USDT",
+    "BNB-USDT", "LTC-USDT", "BCH-USDT", "XRP-USDT", "TRX-USDT",
+    "ETC-USDT", "POL-USDT", "HYPE-USDT", "USDC-USDT", "ETH-USDC",
+    "SOL-USDC", "ETH-BTC", "XRP-BTC"
+]
+DEFAULT_PAIRS = [p.strip() for p in os.getenv("TRADING_PAIRS", ",".join(ALL_TESTNET_PAIRS)).split(",") if p.strip()]
 
 # Trading parameters
 MIN_DELAY = int(os.getenv("MIN_DELAY_SECONDS", "15"))
