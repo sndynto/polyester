@@ -105,6 +105,7 @@ class AccountSession:
         self.persona: TraderPersona | None = None
         self.total_tx_count = 0
         self.total_volume_usd = Decimal("0.0")
+        self.auth_failed = False
 
     def is_valid(self) -> bool:
         return bool(self.api_key_id and self.api_private_key)
@@ -170,11 +171,21 @@ class AccountSession:
                     asset_name = assets.get(b.asset_id, f"ID_{b.asset_id}")
                     formatted_str = format_ledger_u128(avail_int)
                     balances[asset_name] = Decimal(formatted_str)
+        except PolyesterAuthError as ae:
+            self.auth_failed = True
+            log(f"❌ Autentikasi Gagal: Kunci API / Private Key ditolak server ({ae})!", Colors.RED, self.name)
         except Exception as e:
-            log(f"Info cek saldo: {e}", Colors.YELLOW, self.name)
+            err_str = str(e)
+            if "Unauthorized" in err_str or "SIGNATURE_INVALID" in err_str or "without server error details" in err_str:
+                self.auth_failed = True
+                log(f"❌ Autentikasi Gagal: Kunci API / Private Key tidak cocok ({err_str})!", Colors.RED, self.name)
+            else:
+                log(f"Info cek saldo: {e}", Colors.YELLOW, self.name)
         return balances
 
     def print_balances(self, balances: dict[str, Decimal]):
+        if self.auth_failed:
+            return
         log("--- Saldo Trading Account ---", Colors.BOLD, self.name)
         if not balances:
             log("  (Belum ada saldo terdeteksi. Pastikan sudah claim faucet di web!)", Colors.YELLOW, self.name)
@@ -300,6 +311,12 @@ class AccountSession:
         await self.initialize()
         initial_balances = await self.get_balances()
         self.print_balances(initial_balances)
+
+        if self.auth_failed:
+            log("❌ Melewati akun ini karena API Key / Private Key tidak cocok (Bukan karena saldo kosong).", Colors.RED, self.name)
+            if self.client:
+                await self.client.aclose()
+            return "Dilewati (Kunci Salah)"
 
         if not self.has_tradable_balance(initial_balances):
             log("⚠️ Saldo tidak mencukupi untuk trading (minimal $5.00 USDT atau token spot). Melewati akun ini (SKIP)...", Colors.YELLOW, self.name)
