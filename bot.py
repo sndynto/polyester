@@ -340,12 +340,12 @@ class AccountSession:
     def has_tradable_balance(self, balances: dict[str, Decimal]) -> bool:
         if not balances:
             return False
-        # USDT mencukupi minimum notional DEX ($5.0)
-        if balances.get("USDT", Decimal("0")) >= Decimal("5.0"):
+        # USDT atau USDC mencukupi minimum notional DEX ($5.0)
+        if balances.get("USDT", Decimal("0")) >= Decimal("5.0") or balances.get("USDC", Decimal("0")) >= Decimal("5.0"):
             return True
-        # Atau ada token lain yang berpotensi bisa dijual
+        # Atau ada token/koin lain yang berpotensi bisa dijual
         for asset, amt in balances.items():
-            if asset != "USDT" and amt > Decimal("0.0001"):
+            if asset not in ("USDT", "USDC") and amt > Decimal("0.0001"):
                 return True
         return False
 
@@ -361,7 +361,7 @@ class AccountSession:
             return "Dilewati (Kunci Salah)"
 
         if not self.has_tradable_balance(initial_balances):
-            log("⚠️ Saldo tidak mencukupi untuk trading (minimal $5.00 USDT atau token spot). Melewati akun ini (SKIP)...", Colors.YELLOW, self.name)
+            log("⚠️ Saldo tidak mencukupi untuk trading (minimal $5.00 USDT/USDC atau token spot). Melewati akun ini (SKIP)...", Colors.YELLOW, self.name)
             if self.client:
                 await self.client.aclose()
             return "Dilewati (Tanpa Saldo)"
