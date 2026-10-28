@@ -3,14 +3,16 @@
     "name": "Akun 1",
     "api_key_id": "ak_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "api_private_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "account_id": "acc_xxxxxxxxxxxxxx",
+    "account_id": "",
+    "sub_account_id": "",
     "proxy": ""
   },
   {
     "name": "Akun 2",
     "api_key_id": "ak_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
     "api_private_key": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
-    "account_id": "acc_yyyyyyyyyyyyyy",
+    "account_id": "",
+    "sub_account_id": "",
     "proxy": "http://username:password@proxy_host:port"
   }
 ]
