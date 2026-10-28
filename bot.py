@@ -103,6 +103,7 @@ class AccountSession:
         self.api_key_id = account_data.get("api_key_id", "").strip()
         self.api_private_key = account_data.get("api_private_key", "").strip()
         self.account_id = account_data.get("account_id", "").strip()
+        self.sub_account_id = account_data.get("sub_account_id", "").strip() or None
         self.proxy = account_data.get("proxy", "").strip()
         self.base_cycles = base_cycles
         
@@ -134,6 +135,7 @@ class AccountSession:
                 self.client = AsyncPolyester(
                     api_key_id=self.api_key_id,
                     api_private_key=self.api_private_key,
+                    default_sub_account_id=self.sub_account_id,
                     environment=config.CUSTOM_TESTNET_ENV,
                     timeout=30.0
                 )
